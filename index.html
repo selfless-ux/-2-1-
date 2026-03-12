@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Учебный блог</title>
+<style>
+body {font-family: Arial; margin: 40px;}
+.post {border:1px solid #ccc; padding:10px; margin:15px 0;}
+.tag {color:blue; margin-right:5px;}
+button {margin-top:5px;}
+</style>
+</head>
+<body>
+
+<h1>Учебный блог</h1>
+
+<h2>Вход / Регистрация</h2>
+<input id="username" placeholder="Введите имя">
+<button onclick="login()">Войти</button>
+
+<h2>Подписки</h2>
+<input id="subscribeTo" placeholder="Введите имя пользователя для подписки">
+<button onclick="subscribe()">Подписаться</button>
+<p>Ваши подписки: <span id="subscriptions"></span></p>
+
+<h2>Создать пост</h2>
+<textarea id="postText" placeholder="Напишите пост"></textarea>
+<br>
+<input id="tags" placeholder="Теги через запятую">
+<br>
+<label><input type="checkbox" id="privatePost"> Скрытый пост</label>
+<br>
+<button onclick="createPost()">Опубликовать</button>
+
+<h2>Посты</h2>
+<div id="posts"></div>
+
+<script>
+let currentUser = ""
+let users = {} // {имя: {subscriptions: []}}
+let posts = []
+
+function login(){
+  currentUser = document.getElementById("username").value
+  if(!users[currentUser]) users[currentUser] = {subscriptions: []}
+  alert("Вы вошли как " + currentUser)
+  renderSubscriptions()
+}
+
+function subscribe(){
+  let subName = document.getElementById("subscribeTo").value
+  if(subName && subName !== currentUser){
+    if(!users[subName]) users[subName] = {subscriptions: []}
+    if(!users[currentUser].subscriptions.includes(subName)){
+      users[currentUser].subscriptions.push(subName)
+    }
+  }
+  renderSubscriptions()
+}
+
+function renderSubscriptions(){
+  let subs = users[currentUser]?.subscriptions || []
+  document.getElementById("subscriptions").innerText = subs.join(", ")
+}
+
+function createPost(){
+  let text = document.getElementById("postText").value
+  let tags = document.getElementById("tags").value.split(",").map(t=>t.trim()).filter(t=>t)
+  let privatePost = document.getElementById("privatePost").checked
+
+  let post = {
+    id: Date.now(),
+    author: currentUser,
+    text: text,
+    tags: tags,
+    private: privatePost,
+    comments: []
+  }
+  posts.push(post)
+  renderPosts()
+}
+
+function renderPosts(){
+  let container = document.getElementById("posts")
+  container.innerHTML = ""
+
+  posts.forEach(p=>{
+    // Скрытый пост виден только автору
+    if(p.private && p.author !== currentUser) return
+    // Фильтр по подпискам для ленты
+    let subs = users[currentUser]?.subscriptions || []
+    if(currentUser !== p.author && !subs.includes(p.author)) return
+
+    let div = document.createElement("div")
+    div.className = "post"
+
+    div.innerHTML = `
+      <b>${p.author}</b><br>
+      ${p.text}<br>
+      <i>Теги: ${p.tags.map(t=>"<span class='tag'>#"+t+"</span>").join(" ")}</i>
+      <br><br>
+      <button onclick="deletePost(${p.id})">Удалить</button>
+      <button onclick="editPost(${p.id})">Редактировать</button>
+      <br><br>
+      <input id="c${p.id}" placeholder="Комментарий">
+      <button onclick="addComment(${p.id})">Комментировать</button>
+      <div>${p.comments.join("<br>")}</div>
+    `
+    container.appendChild(div)
+  })
+}
+
+function deletePost(id){
+  posts = posts.filter(p=>p.id !== id)
+  renderPosts()
+}
+
+function editPost(id){
+  let post = posts.find(p=>p.id === id)
+  if(post.author !== currentUser) return alert("Редактировать можно только свои посты")
+  let newText = prompt("Редактировать текст поста:", post.text)
+  if(newText !== null) post.text = newText
+  renderPosts()
+}
+
+function addComment(id){
+  let input = document.getElementById("c"+id)
+  let post = posts.find(p=>p.id === id)
+  post.comments.push(currentUser + ": " + input.value)
+  input.value = ""
+  renderPosts()
+}
+
+</script>
+
+</body>
+</html>
