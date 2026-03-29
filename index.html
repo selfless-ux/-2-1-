@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Учебный блог</title>
+
+<style>
+
+body{
+font-family: 'Segoe UI', sans-serif;
+background: linear-gradient(135deg, #667eea, #764ba2);
+margin:0;
+color:#333;
+}
+
+.container{
+max-width:900px;
+margin:40px auto;
+background:white;
+padding:30px;
+border-radius:15px;
+box-shadow:0 10px 30px rgba(0,0,0,0.2);
+}
+
+h1{
+text-align:center;
+color:#2c3e50;
+}
+
+h2{
+margin-top:30px;
+color:#34495e;
+}
+
+input, textarea{
+width:100%;
+padding:10px;
+margin-top:8px;
+border-radius:8px;
+border:1px solid #ccc;
+}
+
+button{
+padding:10px 15px;
+margin-top:10px;
+border:none;
+border-radius:8px;
+background:#667eea;
+color:white;
+cursor:pointer;
+}
+
+button:hover{
+background:#5a67d8;
+}
+
+.card{
+background:white;
+border-radius:12px;
+padding:15px;
+margin:15px 0;
+box-shadow:0 4px 15px rgba(0,0,0,0.1);
+}
+
+.tag{
+color:#667eea;
+margin-right:5px;
+}
+
+img{
+max-width:100%;
+border-radius:10px;
+margin-top:10px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>📝 Учебный блог</h1>
+
+<h2>Вход</h2>
+<input id="username" placeholder="Введите имя">
+<button onclick="login()">Войти</button>
+
+<h2>Подписки</h2>
+<input id="subscribeTo" placeholder="Подписаться на пользователя">
+<button onclick="subscribe()">Подписаться</button>
+<p>Ваши подписки: <span id="subscriptions"></span></p>
+
+<h2>Создать пост</h2>
+<textarea id="postText" placeholder="Напишите пост"></textarea>
+<input id="tags" placeholder="Теги через запятую">
+<input id="imageURL" placeholder="Ссылка на изображение">
+<label>
+<input type="checkbox" id="privatePost"> Скрытый пост
+</label>
+<button onclick="createPost()">Опубликовать</button>
+
+<h2>Посты</h2>
+<div id="posts"></div>
+
+</div>
+
+<script>
+
+let currentUser = ""
+let users = JSON.parse(localStorage.getItem("users")) || {}
+let posts = JSON.parse(localStorage.getItem("posts")) || []
+
+function saveData(){
+  localStorage.setItem("users", JSON.stringify(users))
+  localStorage.setItem("posts", JSON.stringify(posts))
+}
+
+function login(){
+  currentUser = document.getElementById("username").value
+  if(!users[currentUser]) users[currentUser] = {subscriptions: []}
+  alert("Вы вошли как " + currentUser)
+  saveData()
+  renderSubscriptions()
+  renderPosts()
+}
+
+function subscribe(){
+  let subName = document.getElementById("subscribeTo").value
+  if(subName && subName !== currentUser){
+    if(!users[subName]) users[subName] = {subscriptions: []}
+    if(!users[currentUser].subscriptions.includes(subName)){
+      users[currentUser].subscriptions.push(subName)
+    }
+  }
+  saveData()
+  renderSubscriptions()
+}
+
+function renderSubscriptions(){
+  let subs = users[currentUser]?.subscriptions || []
+  document.getElementById("subscriptions").innerText = subs.join(", ")
+}
+
+function createPost(){
+  let text = document.getElementById("postText").value
+  let tags = document.getElementById("tags").value.split(",").map(t=>t.trim()).filter(t=>t)
+  let image = document.getElementById("imageURL").value
+  let privatePost = document.getElementById("privatePost").checked
+
+  let post = {
+    id: Date.now(),
+    author: currentUser,
+    text:text,
+    tags:tags,
+    image:image,
+    private:privatePost,
+    comments:[]
+  }
+
+  posts.push(post)
+  saveData()
+  renderPosts()
+}
+
+function renderPosts(){
+  let container = document.getElementById("posts")
+  container.innerHTML=""
+
+  posts.forEach(p=>{
+
+    if(p.private && p.author !== currentUser) return
+
+    let subs = users[currentUser]?.subscriptions || []
+    if(currentUser !== p.author && !subs.includes(p.author)) return
+
+    let div = document.createElement("div")
+    div.className="card"
+
+    div.innerHTML = `
+    <div style="display:flex; align-items:center; gap:10px;">
+      <img src="https://i.pravatar.cc/40" style="border-radius:50%">
+      <b>${p.author}</b>
+    </div>
+    <br>
+
+    ${p.text}
+
+    ${p.image ? `<img src="${p.image}">` : ""}
+
+    <br><br>
+    Теги: ${p.tags.map(t=>"<span class='tag'>#"+t+"</span>").join("")}
+
+    <br><br>
+
+    <button onclick="deletePost(${p.id})">Удалить</button>
+    <button onclick="editPost(${p.id})">Редактировать</button>
+
+    <br><br>
+
+    <input id="c${p.id}" placeholder="Комментарий">
+    <button onclick="addComment(${p.id})">Комментировать</button>
+
+    <div>${p.comments.join("<br>")}</div>
+    `
+
+    container.appendChild(div)
+
+  })
+}
+
+function deletePost(id){
+  posts = posts.filter(p=>p.id !== id)
+  saveData()
+  renderPosts()
+}
+
+function editPost(id){
+  let post = posts.find(p=>p.id === id)
+  if(post.author !== currentUser) return alert("Можно редактировать только свои посты")
+
+  let newText = prompt("Редактировать текст:", post.text)
+  if(newText !== null){
+    post.text = newText
+    saveData()
+    renderPosts()
+  }
+}
+
+function addComment(id){
+  let input = document.getElementById("c"+id)
+  let post = posts.find(p=>p.id === id)
+
+  post.comments.push(currentUser + ": " + input.value)
+
+  input.value = ""
+
+  saveData()
+  renderPosts()
+}
+
+renderPosts()
+
+</script>
+
+</body>
+</html>
